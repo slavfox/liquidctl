@@ -49,15 +49,19 @@ import itertools
 
 from docopt import docopt
 
+import liquidctl.util
+from liquidctl.driver.kraken_two import KrakenTwoDriver
+from liquidctl.driver.asetek import AsetekDriver
 # from liquidctl.driver.evga_clc import EvgaClcDriver
 # from liquidctl.driver.kraken_em import KrakenEmDriver
 # from liquidctl.driver.nzxt_smart_device import SmartDeviceDriver
-from liquidctl.driver.kraken_two import KrakenTwoDriver
-import liquidctl.util
 
 
 def find_all_supported_devices():
-    alldrivers = [KrakenTwoDriver]
+    alldrivers = [
+        KrakenTwoDriver,
+        AsetekDriver,
+    ]
     return list(itertools.chain(*map(lambda driver: driver.find_supported_devices(), alldrivers)))
 
 
@@ -118,5 +122,5 @@ def main():
 
 
 if __name__ == '__main__':
-    run_cli()
+    main()
 

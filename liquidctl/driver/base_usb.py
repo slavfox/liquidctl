@@ -64,8 +64,9 @@ class BaseUsbDriver(object):
     def connect(self):
         """Connect to the device.
 
-        Replace the kernel driver (Linux only) and set the device configuration
-        to the first available one, if none has been set.
+        Attaches to the kernel driver (or, on Linux, replaces it) and, if no
+        configuration has been set, configures the device to use the first
+        available one.
         """
         if sys.platform.startswith('linux') and self.device.is_kernel_driver_active(0):
             LOGGER.debug('detaching currently active kernel driver')
@@ -79,7 +80,7 @@ class BaseUsbDriver(object):
     def disconnect(self):
         """Disconnect from the device.
 
-        Clean up and (Linux only) reattach the kernel driver.
+        Cleans up and, on Linux, reattaches the previously used kernel driver.
         """
         usb.util.dispose_resources(self.device)
         if self._should_reattach_kernel_driver:

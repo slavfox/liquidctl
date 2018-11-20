@@ -69,10 +69,30 @@ class AsetekDriver(BaseUsbDriver):
         """Instantiate a driver with a device handle."""
         super().__init__(device, description)
 
-    def initialize(self):
-        """Initialize the device."""
-        self.device.ctrl_transfer(0x40, 0x2, 0x0002)
-        usb.util.dispose_resources(self.device)
+    def connect(self):
+        """Connect to the device.
+
+        Attaches to the kernel driver (or, on Linux, replaces it) and, if no
+        configuration has been set, configures the device to use the first
+        available one.  Finally, opens the device.
+        """
+        super().connect()
+        try:
+            self._open()
+        except Exception as err:
+            LOGGER.debug('failed to open (will retry): {}'.format(err),
+                         exc_info=True)
+            self._close()
+            self._open()
+
+    def disconnect(self):
+        """Disconnect from the device.
+
+        Closes the device, cleans up and, on Linux, reattaches the
+        previously used kernel driver.
+        """
+        self._close()
+        super().disconnect()
 
     def get_status(self):
         """Get a status report.
@@ -102,11 +122,31 @@ class AsetekDriver(BaseUsbDriver):
         self._write([mtype, speed])
         self._end_transaction_and_read()
 
+    def _open(self):
+        """Open the USBXpress device."""
+        LOGGER.debug('open device')
+        try:
+            self.device.ctrl_transfer(0x40, 0x0, 0xFFFF)
+            self.clear_halt(_READ_ENDPOINT)
+            self.clear_halt(_WRITE_ENDPOINT)
+        except Exception as err:
+            LOGGER.debug('ignoring early failure: {}'.format(err),
+                         exc_info=True)
+        self.device.ctrl_transfer(0x40, 0x2, 0x0002)
+
+    def _close(self):
+        """Close the USBXpress device."""
+        LOGGER.debug('close device')
+        self.device.ctrl_transfer(0x40, 0x2, 0x0004)
+
     def _begin_transaction(self):
-        # TODO test if this can be moved to connect()
+        """Begin a new transaction before writing to the device."""
+        # TODO try to remove
+        LOGGER.debug('begin transaction')
         self.device.ctrl_transfer(0x40, 0x2, 0x0001)
 
     def _end_transaction_and_read(self):
+        """End the transaction by reading from the device."""
         # TODO test if this is unnecessary (unless we actually want the status)
         msg = self.device.read(_READ_ENDPOINT, _READ_LENGTH, _READ_TIMEOUT)
         LOGGER.debug('received %s', ' '.join(format(i, '02x') for i in msg))

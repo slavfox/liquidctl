@@ -54,7 +54,6 @@ _READ_ENDPOINT = 0x82
 _READ_LENGTH = 32
 _READ_TIMEOUT = 2000
 _WRITE_ENDPOINT = 0x2
-_WRITE_LENGTH = 32  # FIXME
 _WRITE_TIMEOUT = 2000
 
 
@@ -171,10 +170,8 @@ class AsetekDriver(BaseUsbDriver):
             ])
 
     def _write(self, data):
-        padding = [0x0]*(_WRITE_LENGTH - len(data))
-        LOGGER.debug('write %s (and %i padding bytes)',
-                     ' '.join(format(i, '02x') for i in data), len(padding))
+        LOGGER.debug('write %s', ' '.join(format(i, '02x') for i in data))
         if self.dry_run:
             return
-        self.device.write(_WRITE_ENDPOINT, data + padding, _WRITE_TIMEOUT)
+        self.device.write(_WRITE_ENDPOINT, data, _WRITE_TIMEOUT)
 

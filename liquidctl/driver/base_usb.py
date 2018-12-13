@@ -41,6 +41,10 @@ class BaseUsbDriver(object):
 
     def __init__(self, device, description):
         """Instantiate a driver with a device handle."""
+
+        # If the device firmware doesn't support cooling profiles, can we
+        # simulate them in software?
+        self.supports_software_cooling_profiles = False
         self.device = device
         self.description = description
         self.dry_run = False
@@ -116,5 +120,9 @@ class BaseUsbDriver(object):
 
     def set_fixed_speed(self, channel, speed):
         """Set channel to a fixed speed."""
+        raise NotImplementedError()
+
+    @property
+    def supports_cooling_profiles(self):
         raise NotImplementedError()
 

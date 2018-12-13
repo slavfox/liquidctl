@@ -117,11 +117,14 @@ class KrakenTwoDriver(BaseUsbDriver):
         }),
     ]
 
+    supports_software_cooling_profiles = True
+
     def __init__(self, device, description, device_type=DEVICE_KRAKENX):
         super().__init__(device, description)
         self.device_type = device_type
         self.supports_lighting = True
         self.supports_cooling = self.device_type != self.DEVICE_KRAKENM
+        self.supports_software_cooling_profiles = self.supports_cooling
         self._supports_cooling_profiles = None  # physical storage/later inferred from fw version
 
     def get_status(self):
@@ -239,6 +242,9 @@ class KrakenTwoDriver(BaseUsbDriver):
             else:
                 self._supports_cooling_profiles = False
         return self._supports_cooling_profiles
+
+    def read_temperature(self):
+        return self.get_status()[0][1]
 
     def _read(self):
         msg = self.device.read(_READ_ENDPOINT, _READ_LENGTH, _READ_TIMEOUT)

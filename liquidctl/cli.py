@@ -7,6 +7,7 @@ Usage:
   liquidctl [options] set <channel> color <mode> [<color>] ...
   liquidctl [options] initialize
   liquidctl [options] list
+  liquidctl [options] show-sensors
   liquidctl --help
   liquidctl --version
 
@@ -16,6 +17,18 @@ Device selection options:
   --product <id>            Filter devices by product id
   --usb-port <no>           Filter devices by USB port
   --serial <no>             Filter devices by serial number
+
+Speed control options:
+  -S --software                       Force software-controlled cooling
+                                      profile, even if firmware cooling
+                                      profiles are supported. Recommended
+                                      only if your device doesn't support
+                                      firmware cooling profiles.
+  -p --use-psutil                     Enable extra sensors from psutil (requires
+                                      psutil)
+  -s <sensor>, --sensor <sensor>      Select custom sensor
+  -i <seconds>, --interval <seconds>  Update interval in seconds [default: 2]
+  -d                                  Run as daemon
 
 Other options:
   --speed <value>           Animation speed [default: normal]
@@ -27,6 +40,7 @@ Other options:
 
 Examples:
   liquidctl status
+  liquidctl show-sensors --use-psutil --sensor 'coretemp: Core 0'
   liquidctl set pump speed 90
   liquidctl set fan speed  20 30  30 50  34 80  40 90  50 100
   liquidctl set ring color fading 350017 ff2608
@@ -59,7 +73,12 @@ from docopt import docopt
 import liquidctl.util
 from liquidctl.driver.kraken_two import KrakenTwoDriver
 from liquidctl.driver.nzxt_smart_device import NzxtSmartDeviceDriver
+from liquidctl.software_cooling_profile import read_sensors
 from liquidctl.version import __version__
+
+# Typing
+from liquidctl.driver.base_usb import BaseUsbDriver
+from typing import Iterable
 
 
 DRIVERS = [
@@ -71,7 +90,7 @@ DRIVERS = [
 LOGGER = logging.getLogger(__name__)
 
 
-def find_all_supported_devices():
+def find_all_supported_devices() -> Iterable[BaseUsbDriver]:
     res = map(lambda driver: driver.find_supported_devices(), DRIVERS)
     return itertools.chain(*res)
 
@@ -127,16 +146,36 @@ def _device_set_color(dev, args):
     dev.set_color(args['<channel>'], args['<mode>'], color, args['--speed'])
 
 
-def _device_set_speed(dev, args):
+def _device_set_speed(dev: BaseUsbDriver, args):
     if len(args['<temperature>']) > 0:
-        profile = zip(map(int, args['<temperature>']), map(int, args['<percentage>']))
-        dev.set_speed_profile(args['<channel>'], profile)
+        if dev.supports_cooling_profiles:
+            profile = zip(map(int, args['<temperature>']), map(int, args['<percentage>']))
+            dev.set_speed_profile(args['<channel>'], profile)
+        elif dev.supports_software_cooling_profiles:
+            # ToDo
+            _device_set_software_cooling_profile(dev, args)
+        else:
+            LOGGER.error("Device doesn't support cooling profiles")
+            raise NotImplementedError()
     else:
         dev.set_fixed_speed(args['<channel>'], int(args['<percentage>'][0]))
 
 
+def _device_set_software_cooling_profile(dev, args):
+    profile = zip(map(int, args['<temperature>']), map(int, args['<percentage>']))
+
+
 def _parse_color(color):
     return bytes.fromhex(color)
+
+
+def _device_list_sensors(dev, args):
+    sensors = read_sensors(dev, args['--use-psutil'])
+    if args['--sensor']:
+        for k, v in sensors.items():
+            print('{:<70}  {:>6}{}'.format(k, v, '°C'))
+    else:
+        print('{}{}'.format(sensors[args['--sensor']], '°C'))
 
 
 def main():
@@ -167,7 +206,7 @@ def main():
         _list_devices(selected, args)
         return
     if args['status']:
-        for i,dev in selected:
+        for i, dev in selected:
             _device_get_status(dev, i)
         return
 
@@ -185,6 +224,9 @@ def main():
             _device_set_speed(dev, args)
         elif args['set'] and args['color']:
             _device_set_color(dev, args)
+        elif args['show-sensors']:
+            _device_list_sensors(dev, args)
+            return
         else:
             raise Exception('Not sure what to do')
     finally:

@@ -143,6 +143,8 @@ class NzxtSmartDeviceDriver(BaseUsbDriver):
         }),
     ]
 
+    supports_cooling_profiles = False
+
     def __init__(self, device, description, speed_channel_count, color_channel_count):
         """Instantiate a driver with a device handle."""
         super().__init__(device, description)
@@ -246,4 +248,8 @@ class NzxtSmartDeviceDriver(BaseUsbDriver):
         if self.dry_run:
             return
         self.device.write(_WRITE_ENDPOINT, data + padding, _WRITE_TIMEOUT)
+
+    def set_speed_profile(self, channel, profile):
+        raise NotImplementedError()
+
 
